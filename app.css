@@ -375,3 +375,30 @@ details.tbl summary{cursor:pointer;font-size:12.4px;color:var(--muted);padding:8
   .bar .who{display:none}
   .bar{gap:8px}
 }
+
+/* ---------- campo de senha com olhinho ---------- */
+.pwrap{position:relative;display:block}
+.pwrap input{padding-right:46px}
+.peye{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;
+  padding:7px;border-radius:8px;color:var(--muted);display:grid;place-items:center;line-height:0}
+.peye:hover{color:var(--ink);background:var(--surface-2)}
+.peye svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- aviso de confirmação ---------- */
+.confirma{display:flex;flex-direction:column;gap:8px;align-items:flex-start;background:var(--brass-soft);
+  border:1px solid var(--line);border-left:3px solid var(--brass);border-radius:10px;padding:12px 13px;
+  font-size:13px;color:var(--ink-2);line-height:1.55}
+.confirma b{color:var(--ink)}
+
+/* ---------- administração ---------- */
+.pessoa{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.pessoa:last-child{border-bottom:0}
+.pessoa .main{flex:1 1 180px;min-width:0}
+.pessoa .nm{font-weight:600;overflow-wrap:anywhere}
+.pessoa .meta{font-size:12.2px;color:var(--muted);overflow-wrap:anywhere}
+.pessoa select{max-width:118px}
+.pessoa input[type=date]{max-width:160px}
+.tagpro{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:2px 8px;
+  border-radius:999px;border:1px solid var(--brass);color:var(--brass)}
+.tagdono{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:2px 8px;
+  border-radius:999px;border:1px solid var(--line-strong);color:var(--ink-2)}

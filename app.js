@@ -188,6 +188,7 @@ async function puxarDaNuvem(){
     S.perfil = {
       nome:p.data.nome||'', cidade:p.data.cidade||'', documento:p.data.documento||'',
       salario:+p.data.salario, jornada:+p.data.jornada, dias_uteis:+p.data.dias_uteis,
+      email:p.data.email||'', admin:!!p.data.admin,
       escala:p.data.escala||'5x2', horas_dia:+p.data.horas_dia||8.8,
       dias_trabalhados:+p.data.dias_trabalhados||22,
       saldo_inicial:+p.data.saldo_inicial, plano:p.data.plano||'free'
@@ -679,6 +680,9 @@ function perfilView(){
     : 'Você está sem conta — os dados ficam só neste aparelho.';
   $('#whoBadge').textContent = sessao ? sessao.user.email : 'modo local';
   $('#btnSair').textContent = sessao ? 'Sair da conta' : 'Entrar / criar conta';
+  const dono = !!(sessao && S.perfil.admin);
+  $('#navAdmin').hidden = !dono;
+  $('#sheetAdmin').hidden = !dono;
 }
 
 /* ============================================================
@@ -854,6 +858,7 @@ function modoAuth(m){
   $('#wrapNome').hidden = m==='entrar';
   $('#aSenha').autocomplete = m==='entrar' ? 'current-password' : 'new-password';
   $('#authErr').hidden = true; $('#authOk').hidden = true;
+  $('#authConfirma').hidden = true;
 }
 $('#segEntrar').onclick = () => modoAuth('entrar');
 $('#segCriar').onclick  = () => modoAuth('criar');
@@ -862,7 +867,8 @@ function authErro(msg){ const e=$('#authErr'); e.textContent=msg; e.hidden=false
 function authOk(msg){ const e=$('#authOk'); e.textContent=msg; e.hidden=false; $('#authErr').hidden=true; }
 function traduzErro(m){
   m = String(m||'');
-  if(/Invalid login/i.test(m))        return 'E-mail ou senha incorretos.';
+  if(/Email not confirmed/i.test(m))  return 'Falta confirmar seu e-mail. Clique no link que enviamos e tente de novo.';
+  if(/Invalid login/i.test(m))        return 'E-mail ou senha incorretos. Se acabou de se cadastrar, confirme o e-mail primeiro.';
   if(/already registered/i.test(m))   return 'Esse e-mail já tem conta. Use "Entrar".';
   if(/Password should be/i.test(m))   return 'A senha precisa ter pelo menos 6 caracteres.';
   if(/valid email/i.test(m))          return 'Digite um e-mail válido.';
@@ -880,14 +886,17 @@ $('#authForm').addEventListener('submit', async e => {
         email, password: senha, options:{ data:{ nome: $('#aNome').value.trim() } }
       });
       if(error) throw error;
-      if(!data.session){ authOk('Conta criada. Confirme o e-mail que enviamos e depois entre.'); modoAuth('entrar'); return; }
+      if(!data.session){ pedirConfirmacao(email); return; }
       await abrirApp(data.session);
     } else {
       const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
       if(error) throw error;
       await abrirApp(data.session);
     }
-  } catch(err){ authErro(traduzErro(err.message)); }
+  } catch(err){
+    authErro(traduzErro(err.message));
+    if(/Email not confirmed/i.test(err.message||'')) pedirConfirmacao(email);
+  }
   finally{ btn.disabled = false; btn.textContent = modo==='entrar' ? 'Entrar' : 'Criar conta'; }
 });
 $('#btnReset').onclick = async () => {
@@ -899,9 +908,47 @@ $('#btnReset').onclick = async () => {
 };
 $('#btnGuest').onclick = () => { sessao = null; abrirApp(null); };
 
+function pedirConfirmacao(email){
+  emailPendente = email;
+  $('#confirmaEmail').textContent = email;
+  $('#authConfirma').hidden = false;
+  $('#authErr').hidden = true;
+  $('#authOk').hidden = true;
+  modoAuth('entrar');
+  $('#authConfirma').hidden = false;
+}
+let emailPendente = '';
+$('#btnReenviar').onclick = async () => {
+  const alvo = emailPendente || $('#aEmail').value.trim();
+  if(!alvo) return authErro('Escreva seu e-mail no campo acima.');
+  const b = $('#btnReenviar'); b.disabled = true; b.textContent = 'Enviando…';
+  try{
+    const { error } = await sb.auth.resend({ type:'signup', email: alvo });
+    if(error) throw error;
+    authOk('Mandamos de novo para ' + alvo + '. Olhe também no spam.');
+  } catch(e){
+    authErro(traduzErro(e.message));
+  } finally { b.disabled = false; b.textContent = 'Reenviar e-mail'; }
+};
+/* mostrar / ocultar senha */
+$('#verSenha').onclick = () => {
+  const i = $('#aSenha'), b = $('#verSenha');
+  const mostrando = i.type === 'text';
+  i.type = mostrando ? 'password' : 'text';
+  b.setAttribute('aria-pressed', String(!mostrando));
+  b.setAttribute('aria-label', mostrando ? 'Mostrar senha' : 'Ocultar senha');
+  b.querySelector('.ic-eye').hidden = !mostrando;
+  b.querySelector('.ic-eye-off').hidden = mostrando;
+  i.focus();
+};
+
 async function abrirApp(s){
   sessao = s || null;
-  if(sessao){ await puxarDaNuvem(); esvaziarFila(); }
+  if(sessao){
+    await puxarDaNuvem(); esvaziarFila();
+    try { await sb.from('perfis').update({ ultimo_acesso: new Date().toISOString() }).eq('id', sessao.user.id); } catch(e){}
+    if(S.perfil.admin){ carregarAdmin(); }
+  }
   $('#auth').hidden = true;
   $('#boot').hidden = true;
   $('#app').hidden = false;
@@ -1097,6 +1144,125 @@ $('#btnMais').onclick = () => abrirSheet(true);
 $('#sheetBg').onclick = () => abrirSheet(false);
 $('#sheetFechar').onclick = () => abrirSheet(false);
 $$('.sheet-item').forEach(b => b.onclick = () => { abrirSheet(false); irPara(b.dataset.view); });
+
+
+/* ============================================================
+   ADMINISTRAÇÃO — só para o dono do produto
+   ============================================================ */
+let PESSOAS = [], ASSINATURAS = [];
+
+async function carregarAdmin(){
+  if(!sessao || !S.perfil.admin) return;
+  try{
+    const [p, a] = await Promise.all([
+      sb.from('perfis').select('*').order('criado_em', { ascending:false }),
+      sb.from('assinaturas').select('*').order('criado_em', { ascending:false })
+    ]);
+    PESSOAS = p.data || [];
+    ASSINATURAS = a.data || [];
+    renderAdmin();
+  } catch(e){ toast('Não consegui carregar a lista agora', 'bad'); }
+}
+
+function assinaturaAtiva(a){
+  if(a.status !== 'ativa') return false;
+  return !a.fim || a.fim >= todayISO();
+}
+function planoVigente(p){
+  if(p.plano !== 'pro') return false;
+  return !p.plano_expira || String(p.plano_expira).slice(0,10) >= todayISO();
+}
+
+function renderAdmin(){
+  const trinta = new Date(Date.now() - 30*864e5).toISOString();
+  const ativos = PESSOAS.filter(p => p.ultimo_acesso && p.ultimo_acesso >= trinta).length;
+  const pros   = PESSOAS.filter(planoVigente).length;
+  const mrr    = ASSINATURAS.filter(assinaturaAtiva).reduce((a,b) => a + (+b.valor||0), 0);
+
+  $('#adminSub').textContent = PESSOAS.length + ' pessoa(s) · ' + ASSINATURAS.length + ' pagamento(s) registrado(s)';
+  $('#aTotal').textContent = PESSOAS.length;
+  $('#aTotalSub').textContent = PESSOAS.length
+    ? 'primeira em ' + String(PESSOAS[PESSOAS.length-1].criado_em).slice(0,10).split('-').reverse().join('/')
+    : '—';
+  $('#aAtivos').textContent = ativos;
+  $('#aPro').textContent = pros;
+  $('#aProSub').textContent = PESSOAS.length ? Math.round(pros/PESSOAS.length*100) + '% da base' : '—';
+  $('#aMRR').textContent = money(mrr);
+
+  $('#adminList').innerHTML = PESSOAS.length ? PESSOAS.map(p =>
+    '<div class="pessoa"><div class="main"><div class="nm">' + esc(p.nome || '(sem nome)') +
+      (p.admin ? ' <span class="tagdono">dono</span>' : '') +
+      (planoVigente(p) ? ' <span class="tagpro">Pro</span>' : '') + '</div>' +
+      '<div class="meta">' + esc(p.email || '—') + ' · entrou em ' +
+      String(p.criado_em).slice(0,10).split('-').reverse().join('/') +
+      ' · último acesso ' + (p.ultimo_acesso ? String(p.ultimo_acesso).slice(0,10).split('-').reverse().join('/') : 'nunca') +
+      '</div></div>' +
+      '<select data-plano="' + p.id + '"><option value="free"' + (p.plano==='free'?' selected':'') + '>Free</option>' +
+      '<option value="pro"' + (p.plano==='pro'?' selected':'') + '>Pro</option></select>' +
+      '<input type="date" data-exp="' + p.id + '" value="' + (p.plano_expira ? String(p.plano_expira).slice(0,10) : '') + '">' +
+      '<button class="btn ghost sm" data-salvar="' + p.id + '">Salvar</button></div>'
+  ).join('') : '<div class="empty"><b>Ninguém cadastrado ainda</b>Quando alguém criar conta, aparece aqui.</div>';
+
+  $$('#adminList [data-salvar]').forEach(b => b.onclick = async () => {
+    const id = b.dataset.salvar;
+    const plano = $('#adminList [data-plano="' + id + '"]').value;
+    const exp = $('#adminList [data-exp="' + id + '"]').value || null;
+    b.disabled = true;
+    const { error } = await sb.from('perfis').update({ plano, plano_expira: exp }).eq('id', id);
+    b.disabled = false;
+    if(error) return toast('Não deu para salvar: ' + error.message, 'bad');
+    toast('Plano atualizado', 'good');
+    carregarAdmin();
+  });
+
+  $('#asPessoa').innerHTML = PESSOAS.map(p =>
+    '<option value="' + p.id + '">' + esc(p.nome || p.email || p.id.slice(0,8)) + '</option>').join('');
+
+  $('#assinaturasList').innerHTML = ASSINATURAS.length ? ASSINATURAS.map(a => {
+    const dono = PESSOAS.find(p => p.id === a.user_id);
+    return '<div class="item"><span class="stripe ' + (assinaturaAtiva(a) ? 'in' : '') + '"></span>' +
+      '<div class="main"><div class="nm">' + esc(dono ? (dono.nome || dono.email) : 'usuário removido') + '</div>' +
+      '<div class="meta">' + esc(a.metodo || '—') + ' · ' +
+      String(a.inicio).split('-').reverse().join('/') +
+      (a.fim ? ' até ' + String(a.fim).split('-').reverse().join('/') : ' (sem prazo)') +
+      ' · ' + (assinaturaAtiva(a) ? 'ativa' : a.status) + '</div></div>' +
+      '<div class="amt num">' + money(a.valor) + '</div>' +
+      '<button class="x" data-delas="' + a.id + '" aria-label="Excluir">&times;</button></div>';
+  }).join('') : '<div class="empty"><b>Nenhum pagamento registrado</b>Use o formulário acima quando alguém pagar.</div>';
+
+  $$('#assinaturasList [data-delas]').forEach(b => b.onclick = async () => {
+    const { error } = await sb.from('assinaturas').delete().eq('id', b.dataset.delas);
+    if(error) return toast('Não deu para excluir', 'bad');
+    carregarAdmin();
+  });
+}
+
+$('#btnRecarregarAdmin').onclick = carregarAdmin;
+
+$('#btnAddAssinatura').onclick = async () => {
+  const user_id = $('#asPessoa').value;
+  if(!user_id) return toast('Escolha a pessoa', 'bad');
+  const valor = +$('#asValor').value || 0;
+  const inicio = $('#asInicio').value || todayISO();
+  const fim = $('#asFim').value || null;
+  const b = $('#btnAddAssinatura'); b.disabled = true;
+  const r1 = await sb.from('assinaturas').insert({
+    user_id, plano:'pro', status:'ativa', valor, metodo:$('#asMetodo').value, inicio, fim });
+  const r2 = await sb.from('perfis').update({ plano:'pro', plano_expira: fim }).eq('id', user_id);
+  b.disabled = false;
+  if(r1.error || r2.error) return toast('Não deu certo: ' + ((r1.error||r2.error).message), 'bad');
+  toast('Pro liberado', 'good');
+  carregarAdmin();
+};
+
+/* datas padrão do formulário de assinatura: hoje até daqui a um mês */
+(function datasAssinatura(){
+  const hoje = new Date();
+  const mais = new Date(hoje.getFullYear(), hoje.getMonth()+1, hoje.getDate());
+  $('#asInicio').value = hoje.toLocaleDateString('sv-SE');
+  $('#asFim').value = mais.toLocaleDateString('sv-SE');
+})();
+renderAdmin();   /* pinta os estados vazios antes de qualquer dado chegar */
 
 /* ============================================================
    INÍCIO

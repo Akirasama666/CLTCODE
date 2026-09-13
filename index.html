@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-<svg class="sprite" aria-hidden="true"><symbol id='i-painel' viewBox='0 0 24 24'><rect x='3' y='3' width='7' height='9' rx='1.5'/><rect x='14' y='3' width='7' height='5' rx='1.5'/><rect x='14' y='12' width='7' height='9' rx='1.5'/><rect x='3' y='16' width='7' height='5' rx='1.5'/></symbol><symbol id='i-contas' viewBox='0 0 24 24'><path d='M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z'/><path d='M9 8h6M9 12h6'/></symbol><symbol id='i-lanc' viewBox='0 0 24 24'><path d='M7 20V5m0 0L3 9m4-4 4 4'/><path d='M17 4v15m0 0 4-4m-4 4-4-4'/></symbol><symbol id='i-graf' viewBox='0 0 24 24'><path d='M4 20h16'/><rect x='5' y='11' width='4' height='6' rx='1'/><rect x='11' y='7' width='4' height='10' rx='1'/><rect x='17' y='13' width='3' height='4' rx='1'/></symbol><symbol id='i-precos' viewBox='0 0 24 24'><path d='M20.6 12.6 12.6 20.6a2 2 0 0 1-2.8 0l-6.4-6.4a2 2 0 0 1-.6-1.4V4.4A1.4 1.4 0 0 1 4.4 3h8.4a2 2 0 0 1 1.4.6l6.4 6.4a2 2 0 0 1 0 2.6z'/><circle cx='7.5' cy='7.5' r='1.3'/></symbol><symbol id='i-rec' viewBox='0 0 24 24'><path d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/><path d='M14 3v5h5'/><path d='M9 13h6M9 17h4'/></symbol><symbol id='i-dividas' viewBox='0 0 24 24'><path d='M3 7h18v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/><path d='M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2'/><path d='M8 13h8'/></symbol><symbol id='i-mais' viewBox='0 0 24 24'><circle cx='5' cy='12' r='1.6'/><circle cx='12' cy='12' r='1.6'/><circle cx='19' cy='12' r='1.6'/></symbol><symbol id='i-conta' viewBox='0 0 24 24'><circle cx='12' cy='8' r='4'/><path d='M4 21c0-4 3.6-6 8-6s8 2 8 6'/></symbol></svg>
+<svg class="sprite" aria-hidden="true"><symbol id='i-painel' viewBox='0 0 24 24'><rect x='3' y='3' width='7' height='9' rx='1.5'/><rect x='14' y='3' width='7' height='5' rx='1.5'/><rect x='14' y='12' width='7' height='9' rx='1.5'/><rect x='3' y='16' width='7' height='5' rx='1.5'/></symbol><symbol id='i-contas' viewBox='0 0 24 24'><path d='M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z'/><path d='M9 8h6M9 12h6'/></symbol><symbol id='i-lanc' viewBox='0 0 24 24'><path d='M7 20V5m0 0L3 9m4-4 4 4'/><path d='M17 4v15m0 0 4-4m-4 4-4-4'/></symbol><symbol id='i-graf' viewBox='0 0 24 24'><path d='M4 20h16'/><rect x='5' y='11' width='4' height='6' rx='1'/><rect x='11' y='7' width='4' height='10' rx='1'/><rect x='17' y='13' width='3' height='4' rx='1'/></symbol><symbol id='i-precos' viewBox='0 0 24 24'><path d='M20.6 12.6 12.6 20.6a2 2 0 0 1-2.8 0l-6.4-6.4a2 2 0 0 1-.6-1.4V4.4A1.4 1.4 0 0 1 4.4 3h8.4a2 2 0 0 1 1.4.6l6.4 6.4a2 2 0 0 1 0 2.6z'/><circle cx='7.5' cy='7.5' r='1.3'/></symbol><symbol id='i-rec' viewBox='0 0 24 24'><path d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/><path d='M14 3v5h5'/><path d='M9 13h6M9 17h4'/></symbol><symbol id='i-dividas' viewBox='0 0 24 24'><path d='M3 7h18v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/><path d='M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2'/><path d='M8 13h8'/></symbol><symbol id='i-mais' viewBox='0 0 24 24'><circle cx='5' cy='12' r='1.6'/><circle cx='12' cy='12' r='1.6'/><circle cx='19' cy='12' r='1.6'/></symbol><symbol id='i-dono' viewBox='0 0 24 24'><path d='M12 2 4 6v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6z'/><path d='M9 12l2 2 4-4'/></symbol><symbol id='i-conta' viewBox='0 0 24 24'><circle cx='12' cy='8' r='4'/><path d='M4 21c0-4 3.6-6 8-6s8 2 8 6'/></symbol></svg>
 
 <!-- ============================ CARREGANDO ============================ -->
 <div id="boot" class="boot">
@@ -57,10 +57,22 @@
           <input type="email" id="aEmail" autocomplete="email" required placeholder="voce@email.com">
         </label>
         <label class="f">Senha
-          <input type="password" id="aSenha" autocomplete="current-password" required minlength="6" placeholder="mínimo 6 caracteres">
+          <span class="pwrap">
+            <input type="password" id="aSenha" autocomplete="current-password" required minlength="6" placeholder="mínimo 6 caracteres">
+            <button type="button" class="peye" id="verSenha" aria-label="Mostrar senha" aria-pressed="false">
+              <svg viewBox="0 0 24 24" class="ic-eye"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg viewBox="0 0 24 24" class="ic-eye-off" hidden><path d="M2 12s3.6-7 10-7c2 0 3.7.7 5.2 1.6M22 12s-3.6 7-10 7c-2 0-3.8-.7-5.3-1.7"/><path d="M4 4l16 16"/></svg>
+            </button>
+          </span>
         </label>
         <p class="err" id="authErr" hidden></p>
         <p class="ok" id="authOk" hidden></p>
+        <div class="confirma" id="authConfirma" hidden>
+          <b>Falta confirmar seu e-mail.</b>
+          <span>Abrimos uma mensagem para <span id="confirmaEmail" class="num"></span>. Clique no link dela e volte aqui.
+          Se não chegou, olhe no spam ou peça de novo.</span>
+          <button type="button" class="btn ghost sm" id="btnReenviar">Reenviar e-mail</button>
+        </div>
         <button class="btn big" id="authGo" type="submit">Entrar</button>
       </form>
 
@@ -87,6 +99,7 @@
       <button class="nv" data-view="graf" aria-selected="false"><svg class="ic"><use href="#i-graf"/></svg><span>Gráficos</span></button>
       <button class="nv" data-view="precos" aria-selected="false"><svg class="ic"><use href="#i-precos"/></svg><span>Preços</span></button>
       <button class="nv" data-view="rec" aria-selected="false"><svg class="ic"><use href="#i-rec"/></svg><span>Recibos</span></button>
+      <button class="nv" id="navAdmin" data-view="admin" aria-selected="false" hidden><svg class="ic"><use href="#i-dono"/></svg><span>Administração</span></button>
       <button class="nv" data-view="conta" aria-selected="false"><svg class="ic"><use href="#i-conta"/></svg><span>Minha conta</span></button>
     </nav>
     <div class="side-foot">
@@ -413,6 +426,40 @@
         </section>
       </div>
 
+      <!-- ---------- ADMINISTRAÇÃO (só o dono) ---------- -->
+      <div class="view" id="v-admin" hidden>
+        <section class="block">
+          <div class="bh"><h2>Quem usa o CLT Code</h2><p id="adminSub">—</p>
+            <span class="grow"></span>
+            <button class="btn ghost sm" id="btnRecarregarAdmin">Atualizar</button></div>
+          <div class="tiles" style="margin-bottom:14px">
+            <div class="tile"><span class="k">Pessoas cadastradas</span><span class="v num" id="aTotal">—</span><span class="sub" id="aTotalSub">—</span></div>
+            <div class="tile"><span class="k">Ativas em 30 dias</span><span class="v num" id="aAtivos">—</span><span class="sub">abriram o app</span></div>
+            <div class="tile"><span class="k">Assinantes Pro</span><span class="v num" id="aPro">—</span><span class="sub" id="aProSub">—</span></div>
+            <div class="tile accent"><span class="k">Receita recorrente</span><span class="v num" id="aMRR">—</span><span class="sub">assinaturas ativas hoje</span></div>
+          </div>
+          <div class="list" id="adminList"></div>
+        </section>
+
+        <section class="block">
+          <div class="bh"><h2>Registrar pagamento</h2><p>Recebeu por Pix ou transferência? Lance aqui e o plano vira Pro.</p></div>
+          <div class="card">
+            <div class="row">
+              <label class="f" style="flex:2 1 220px">Pessoa<select id="asPessoa"></select></label>
+              <label class="f">Valor (R$)<input class="num" type="number" id="asValor" step="0.01" min="0" inputmode="decimal" value="12.90"></label>
+              <label class="f">Como pagou<select id="asMetodo"><option>Pix</option><option>Cartão</option><option>Transferência</option><option>Cortesia</option></select></label>
+            </div>
+            <div class="row" style="margin-top:11px">
+              <label class="f">Começa em<input type="date" id="asInicio"></label>
+              <label class="f">Vale até<input type="date" id="asFim"></label>
+              <div class="actions"><button class="btn" id="btnAddAssinatura">Registrar e liberar Pro</button></div>
+            </div>
+          </div>
+          <div class="bh" style="margin-top:22px"><h2>Pagamentos registrados</h2></div>
+          <div class="list" id="assinaturasList"></div>
+        </section>
+      </div>
+
     </main>
 
     <nav class="tabbar" role="tablist">
@@ -429,6 +476,7 @@
         <h3>Mais</h3>
         <button class="sheet-item" data-view="precos"><svg class="ic"><use href="#i-precos"/></svg>Preços</button>
         <button class="sheet-item" data-view="rec"><svg class="ic"><use href="#i-rec"/></svg>Recibos</button>
+        <button class="sheet-item" id="sheetAdmin" data-view="admin" hidden><svg class="ic"><use href="#i-dono"/></svg>Administração</button>
         <button class="sheet-item" data-view="conta"><svg class="ic"><use href="#i-conta"/></svg>Minha conta</button>
         <button class="btn ghost" id="sheetFechar">Fechar</button>
       </div>

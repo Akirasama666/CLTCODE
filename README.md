@@ -61,3 +61,38 @@ protege os dados são as políticas de RLS, não a chave.
 
 Sem login, o app funciona em modo local (`localStorage`). Ao criar conta, os
 dados que já estavam no aparelho sobem para a nuvem.
+
+## Contas, planos e administração
+
+### Como funciona hoje
+
+O CLT Code já é multiusuário. Cada pessoa cria a própria conta e só enxerga os
+próprios dados — quem garante isso é a RLS do Postgres, não o código do site.
+Você é apenas mais um usuário, com uma diferença: seu perfil tem `admin = true`.
+
+### O painel do dono
+
+Quem tem `admin = true` vê o menu **Administração**, com:
+
+- quantas pessoas se cadastraram, quantas abriram o app nos últimos 30 dias,
+  quantas estão no Pro e a receita recorrente das assinaturas ativas;
+- a lista de pessoas, onde dá para trocar o plano (Free/Pro) e a data de validade;
+- o registro de pagamentos: escolhe a pessoa, o valor, o método e o período —
+  o plano dela vira Pro automaticamente até a data final.
+
+### Como virar administrador
+
+Uma vez, no SQL Editor do Supabase:
+
+```sql
+update public.perfis set admin = true where email = 'seu@email.com';
+```
+
+### Sobre cobrança automática
+
+O registro de pagamento acima é **manual** — feito para quem recebe por Pix.
+Para cobrança automática (cartão recorrente), o caminho é um gateway
+(Mercado Pago, Asaas ou Stripe) com **webhook**: o gateway avisa o servidor que
+o pagamento entrou e o servidor muda o plano. A mudança de plano nunca pode
+partir do navegador do cliente, senão qualquer pessoa libera o Pro sozinha —
+é por isso que as políticas de `perfis` só deixam o dono alterar planos.
