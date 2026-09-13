@@ -402,3 +402,36 @@ details.tbl summary{cursor:pointer;font-size:12.4px;color:var(--muted);padding:8
   border-radius:999px;border:1px solid var(--brass);color:var(--brass)}
 .tagdono{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:2px 8px;
   border-radius:999px;border:1px solid var(--line-strong);color:var(--ink-2)}
+
+/* ---------- trava de plano ---------- */
+.trava{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--brass-soft);
+  border:1px solid var(--brass);border-radius:10px;padding:12px 14px;font-size:13.4px;color:var(--ink-2);margin-bottom:16px}
+.trava b{color:var(--ink)}
+.trava > div{flex:1 1 240px}
+.travado{opacity:.45;pointer-events:none;filter:grayscale(.5)}
+
+/* ---------- plano atual ---------- */
+.statusplano{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.statusplano .selo{font-family:"Instrument Serif",Georgia,serif;font-size:26px;line-height:1}
+.statusplano .det{flex:1 1 200px;font-size:13.6px;color:var(--ink-2)}
+.plano.vita{border-color:var(--ink)}
+:root[data-theme="dark"] .plano.vita{border-color:var(--brass)}
+.ptag.melhor{left:auto;right:18px;background:var(--ink);color:var(--paper);border-color:var(--ink)}
+:root[data-theme="dark"] .ptag.melhor{background:var(--brass);color:#12100A;border-color:var(--brass)}
+
+/* ---------- área de arquivo ---------- */
+.drop{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;cursor:pointer;
+  border:2px dashed var(--line-strong);border-radius:14px;padding:30px 20px;background:var(--surface);color:var(--ink-2)}
+.drop:hover,.drop.sobre{border-color:var(--brass);background:var(--brass-soft)}
+.drop b{font-size:16px;color:var(--ink)}
+.drop span{font-size:12.8px;color:var(--muted);max-width:44ch}
+.drop .ic{color:var(--brass);stroke-width:1.6}
+
+.achado{display:flex;align-items:center;gap:11px;padding:10px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.achado:last-child{border-bottom:0}
+.achado input[type=text]{flex:2 1 160px;min-width:0}
+.achado input[type=number]{flex:0 1 130px}
+.achado .sw{flex:0 0 auto}
+.docmeta{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:10px}
+.docmeta .tipo{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  padding:3px 9px;border-radius:999px;border:1px solid var(--brass);color:var(--brass)}

@@ -69,8 +69,8 @@ const LS='cltcode.v2', LS_OUT='cltcode.outbox';
 function vazio(){
   return { v:2, demo:false, updatedAt:Date.now(),
     perfil:{ nome:'', cidade:'', documento:'', salario:SAL_MIN_2026, jornada:44, dias_uteis:22,
-      escala:'5x2', horas_dia:8.8, dias_trabalhados:22, saldo_inicial:0, plano:'free' },
-    contas:[], lancamentos:[], recibos:[], itens:[], dividas:[], meta:{ nome:'', valor:0, mensal:0 } };
+      escala:'5x2', horas_dia:8.8, dias_trabalhados:22, saldo_inicial:0, plano:'free', plano_expira:null },
+    contas:[], lancamentos:[], recibos:[], itens:[], dividas:[], documentos:[], meta:{ nome:'', valor:0, mensal:0 } };
 }
 function exemplo(){
   const s = vazio(), m = todayISO().slice(0,7), d = n => m+'-'+String(n).padStart(2,'0');
@@ -104,7 +104,7 @@ function exemplo(){
 }
 function carregar(){
   try { const r = localStorage.getItem(LS); if(r){ const s = JSON.parse(r); if(s && s.perfil){
-    s.dividas = s.dividas || [];
+    s.dividas = s.dividas || []; s.documentos = s.documentos || [];
     if(!s.perfil.escala){ s.perfil.escala='5x2'; s.perfil.horas_dia=8.8; s.perfil.dias_trabalhados = s.perfil.dias_uteis || 22; }
     return s; } } } catch(e){}
   return exemplo();
@@ -124,7 +124,7 @@ function fila(){ try { return JSON.parse(localStorage.getItem(LS_OUT) || '[]'); 
 function setFila(f){ try { localStorage.setItem(LS_OUT, JSON.stringify(f.slice(-400))); } catch(e){} }
 function enfileirar(op){ const f = fila(); f.push(op); setFila(f); marcarSync(); }
 
-const TABELAS = { contas:'contas', lancamentos:'lancamentos', recibos:'recibos', itens:'itens_preco', dividas:'dividas' };
+const TABELAS = { contas:'contas', lancamentos:'lancamentos', recibos:'recibos', itens:'itens_preco', dividas:'dividas', documentos:'documentos' };
 
 async function enviar(op){
   if(!sessao) return false;
@@ -168,13 +168,14 @@ function marcarSync(){
 async function puxarDaNuvem(){
   if(!sessao) return;
   const uidv = sessao.user.id;
-  const [p, c, l, r, i, dv] = await Promise.all([
+  const [p, c, l, r, i, dv, dc] = await Promise.all([
     sb.from('perfis').select('*').eq('id', uidv).maybeSingle(),
     sb.from('contas').select('*').eq('user_id', uidv),
     sb.from('lancamentos').select('*').eq('user_id', uidv),
     sb.from('recibos').select('*').eq('user_id', uidv),
     sb.from('itens_preco').select('*').eq('user_id', uidv),
-    sb.from('dividas').select('*').eq('user_id', uidv)
+    sb.from('dividas').select('*').eq('user_id', uidv),
+    sb.from('documentos').select('*').eq('user_id', uidv).order('criado_em', { ascending:false })
   ]);
   const temNuvem = (c.data||[]).length || (l.data||[]).length || (r.data||[]).length;
 
@@ -191,7 +192,8 @@ async function puxarDaNuvem(){
       email:p.data.email||'', admin:!!p.data.admin,
       escala:p.data.escala||'5x2', horas_dia:+p.data.horas_dia||8.8,
       dias_trabalhados:+p.data.dias_trabalhados||22,
-      saldo_inicial:+p.data.saldo_inicial, plano:p.data.plano||'free'
+      saldo_inicial:+p.data.saldo_inicial, plano:p.data.plano||'free',
+      plano_expira:p.data.plano_expira ? String(p.data.plano_expira).slice(0,10) : null
     };
   }
   if(temNuvem){
@@ -202,6 +204,8 @@ async function puxarDaNuvem(){
     S.itens       = (i.data||[]).map(x=>({ id:x.id, nome:x.nome, preco:+x.preco, fonte:x.fonte, url:x.url }));
     S.dividas     = (dv.data||[]).map(x=>({ id:x.id, nome:x.nome, credor:x.credor, total:+x.total, pago:+x.pago,
       parcela:+x.parcela, dia:x.dia, juros:+x.juros, contar:x.contar, quitada:x.quitada }));
+    S.documentos   = (dc.data||[]).map(x=>({ id:x.id, tipo:x.tipo, arquivo:x.arquivo, paginas:x.paginas,
+      total:+x.total, itens:x.itens||[], integrado:x.integrado, criado_em:x.criado_em }));
   } else if(S.demo){
     // conta nova e sem nada na nuvem: começa limpo
     S = vazio(); S.perfil.nome = sessao.user.user_metadata?.nome || '';
@@ -218,7 +222,34 @@ async function subirTudo(){
   await send('recibos', S.recibos);
   await send('itens', S.itens);
   await send('dividas', S.dividas);
+  await send('documentos', S.documentos);
 }
+
+/* ============================================================
+   PLANOS E LIMITES
+   Mude os números aqui para ajustar o que o Free oferece.
+   ============================================================ */
+const PRECOS = { pro: 12.90, vitalicio: 49.90 };
+/* Preencha para o botão "Quero o Pro" abrir seu contato. */
+const CONTATO = { pix: 'noxstudeo@gmail.com', whatsapp: '61993118272', email: 'noxstudeo@gmail.com' };
+
+const LIMITES = {
+  free: { dividas: 2, recibosMes: 3, mesesGrafico: 3,  documentos: false, buscaPreco: false, exportar: false },
+  pago: { dividas: Infinity, recibosMes: Infinity, mesesGrafico: 12, documentos: true, buscaPreco: true, exportar: true }
+};
+function planoInfo(){
+  const p = S.perfil.plano || 'free';
+  const exp = S.perfil.plano_expira || null;
+  if(p === 'vitalicio') return { plano:'vitalicio', nome:'Vitalício', ativo:true, expira:null, vencido:false };
+  if(p === 'pro'){
+    const ativo = !exp || exp >= todayISO();
+    return { plano:'pro', nome:'Pro', ativo, expira:exp, vencido:!ativo };
+  }
+  return { plano:'free', nome:'Free', ativo:false, expira:null, vencido:false };
+}
+const ehPago = () => planoInfo().ativo;
+const limite = () => ehPago() ? LIMITES.pago : LIMITES.free;
+const recibosDoMes = () => S.recibos.filter(r => monthOf(r.data) === todayISO().slice(0,7)).length;
 
 /* ---------------- cálculos ---------------- */
 /* Escalas de trabalho brasileiras.
@@ -274,7 +305,7 @@ function desenharTudo(){
   $('#mLbl').textContent = monthLabel(mesSel);
   $('#demoNote').hidden  = !S.demo;
   $('#guestNote').hidden = !!sessao;
-  painel(); contas(); renderDividas(); lancamentos(); graficos(); precos(); recibo(); perfilView();
+  painel(); contas(); renderDividas(); renderDocs(); lancamentos(); graficos(); precos(); recibo(); perfilView(); aplicarPlano();
   marcarSync();
 }
 
@@ -443,7 +474,9 @@ function barTop(x,y,w,h,r){ r = Math.min(r, w/2, h);
          ' L'+(x+w-r)+','+y+' Q'+(x+w)+','+y+' '+(x+w)+','+(y+r)+' L'+(x+w)+','+(y+h)+' Z'; }
 
 function graficos(){
-  const meses = ultimosMeses(6);
+  const n = limite().mesesGrafico;
+  $('#grafSub').textContent = 'Os últimos ' + n + ' meses de operação.';
+  const meses = ultimosMeses(n);
   const dados = meses.map(m => ({ m, ...totaisMes(m) }));
   const W=680, ML=52, MR=16, MT=14, MB=34, iw=W-ML-MR;
 
@@ -742,16 +775,28 @@ $('#btnSalvarPerfil').onclick = () => {
   toast('Dados salvos', 'good');
 };
 $('#btnExportar').onclick = () => {
+  if(!limite().exportar){ return toast('Exportar os dados é do plano pago', 'bad'); }
   const blob = new Blob([JSON.stringify(S, null, 2)], { type:'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'clt-code-' + todayISO() + '.json';
   a.click(); URL.revokeObjectURL(a.href);
 };
-$('#btnSair').onclick = async () => {
-  if(sessao){ await sb.auth.signOut(); location.reload(); }
-  else { $('#app').hidden = true; $('#auth').hidden = false; }
-};
+async function sairDaConta(){
+  if(!sessao){ $('#app').hidden = true; $('#auth').hidden = false; return; }
+  toast('Saindo…');
+  try { await sb.auth.signOut(); } catch(e){}
+  /* limpa qualquer resto de sessão guardado no aparelho */
+  try {
+    Object.keys(localStorage).forEach(k => { if(k.startsWith('sb-')) localStorage.removeItem(k); });
+    localStorage.removeItem('cltcode.local');
+  } catch(e){}
+  sessao = null;
+  /* recarrega sem cache para o app voltar à tela de entrada */
+  location.replace(location.origin + '/?saiu=' + Date.now());
+}
+$('#btnSair').onclick = sairDaConta;
+$('#sheetSair').onclick = () => { abrirSheet(false); sairDaConta(); };
 $('#btnVirarConta').onclick = () => { $('#app').hidden = true; $('#auth').hidden = false; modoAuth('criar'); };
 
 /* demo */
@@ -809,6 +854,7 @@ $('#btnAddLanc').onclick = () => {
 $('#fSim').addEventListener('input', simular);
 $('#formBusca').addEventListener('submit', e => {
   e.preventDefault();
+  if(!limite().buscaPreco) return toast('Busca de preço é do plano pago', 'bad');
   const q = $('#qBusca').value.trim();
   if(q) buscarPreco(q);
 });
@@ -825,6 +871,10 @@ $('#btnAddItem').onclick = () => {
 $('#btnSalvarRec').onclick = () => {
   const r = dadosRecibo();
   if(!r.valor) return toast('Informe o valor do recibo', 'bad');
+  if(recibosDoMes() >= limite().recibosMes){
+    irPara('conta');
+    return toast('O Free emite ' + LIMITES.free.recibosMes + ' recibos por mês', 'bad');
+  }
   const row = { id:uid(), ...r };
   S.recibos.push(row);
   S.perfil.nome = r.emissor !== '—' ? r.emissor : S.perfil.nome;
@@ -1098,6 +1148,10 @@ function abaterDivida(d, valor){
 $('#btnAddDivida').onclick = () => {
   const nome = $('#dNome').value.trim(), total = +$('#dTotal').value || 0;
   if(!nome || !total) return toast('Escreva o nome da dívida e o total devido', 'bad');
+  if(S.dividas.length >= limite().dividas){
+    irPara('conta');
+    return toast('O Free guarda até ' + LIMITES.free.dividas + ' dívidas', 'bad');
+  }
   const d = { id:uid(), nome, credor:$('#dCredor').value.trim(), total,
     pago: Math.min(+$('#dJaPago').value || 0, total),
     parcela:+$('#dParcela').value || 0, dia:+$('#dDia').value || 10,
@@ -1143,7 +1197,7 @@ function abrirSheet(v){ $('#sheetMais').hidden = !v; }
 $('#btnMais').onclick = () => abrirSheet(true);
 $('#sheetBg').onclick = () => abrirSheet(false);
 $('#sheetFechar').onclick = () => abrirSheet(false);
-$$('.sheet-item').forEach(b => b.onclick = () => { abrirSheet(false); irPara(b.dataset.view); });
+$$('.sheet-item[data-view]').forEach(b => b.onclick = () => { abrirSheet(false); irPara(b.dataset.view); });
 
 
 /* ============================================================
@@ -1198,7 +1252,8 @@ function renderAdmin(){
       ' · último acesso ' + (p.ultimo_acesso ? String(p.ultimo_acesso).slice(0,10).split('-').reverse().join('/') : 'nunca') +
       '</div></div>' +
       '<select data-plano="' + p.id + '"><option value="free"' + (p.plano==='free'?' selected':'') + '>Free</option>' +
-      '<option value="pro"' + (p.plano==='pro'?' selected':'') + '>Pro</option></select>' +
+      '<option value="pro"' + (p.plano==='pro'?' selected':'') + '>Pro</option>' +
+      '<option value="vitalicio"' + (p.plano==='vitalicio'?' selected':'') + '>Vitalício</option></select>' +
       '<input type="date" data-exp="' + p.id + '" value="' + (p.plano_expira ? String(p.plano_expira).slice(0,10) : '') + '">' +
       '<button class="btn ghost sm" data-salvar="' + p.id + '">Salvar</button></div>'
   ).join('') : '<div class="empty"><b>Ninguém cadastrado ainda</b>Quando alguém criar conta, aparece aqui.</div>';
@@ -1238,6 +1293,10 @@ function renderAdmin(){
 }
 
 $('#btnRecarregarAdmin').onclick = carregarAdmin;
+$('#asPlano').addEventListener('change', () => {
+  $('#asValor').value = $('#asPlano').value === 'vitalicio' ? PRECOS.vitalicio : PRECOS.pro;
+  $('#asFim').disabled = $('#asPlano').value === 'vitalicio';
+});
 
 $('#btnAddAssinatura').onclick = async () => {
   const user_id = $('#asPessoa').value;
@@ -1246,12 +1305,15 @@ $('#btnAddAssinatura').onclick = async () => {
   const inicio = $('#asInicio').value || todayISO();
   const fim = $('#asFim').value || null;
   const b = $('#btnAddAssinatura'); b.disabled = true;
+  const plano = $('#asPlano').value;
   const r1 = await sb.from('assinaturas').insert({
-    user_id, plano:'pro', status:'ativa', valor, metodo:$('#asMetodo').value, inicio, fim });
-  const r2 = await sb.from('perfis').update({ plano:'pro', plano_expira: fim }).eq('id', user_id);
+    user_id, plano, status:'ativa', valor, metodo:$('#asMetodo').value,
+    inicio, fim: plano === 'vitalicio' ? null : fim });
+  const r2 = await sb.from('perfis')
+    .update({ plano, plano_expira: plano === 'vitalicio' ? null : fim }).eq('id', user_id);
   b.disabled = false;
   if(r1.error || r2.error) return toast('Não deu certo: ' + ((r1.error||r2.error).message), 'bad');
-  toast('Pro liberado', 'good');
+  toast(($('#asPlano').value === 'vitalicio' ? 'Vitalício' : 'Pro') + ' liberado', 'good');
   carregarAdmin();
 };
 
@@ -1263,6 +1325,274 @@ $('#btnAddAssinatura').onclick = async () => {
   $('#asFim').value = mais.toLocaleDateString('sv-SE');
 })();
 renderAdmin();   /* pinta os estados vazios antes de qualquer dado chegar */
+
+
+/* ============================================================
+   APLICAR O PLANO NA TELA
+   ============================================================ */
+function fmtData(d){ return d ? String(d).slice(0,10).split('-').reverse().join('/') : '—'; }
+function diasAte(d){
+  if(!d) return Infinity;
+  return Math.ceil((new Date(d + 'T12:00:00') - new Date()) / 864e5);
+}
+
+function aplicarPlano(){
+  const p = planoInfo(), pago = p.ativo, lim = limite();
+
+  $('#travaDocs').hidden = pago;
+  $('#docsConteudo').classList.toggle('travado', !pago);
+  $('#travaPrecos').hidden = pago;
+  $('#formBusca').classList.toggle('travado', !pago);
+  $('#travaGraf').hidden = pago;
+  $('#travaDividas').hidden = pago || S.dividas.length < lim.dividas;
+
+  const perto = p.plano === 'pro' && p.ativo && diasAte(p.expira) <= 5;
+  $('#blocoPlanos').hidden = pago && !perto;
+  $('#tagFree').hidden = p.plano !== 'free';
+  $('#tagPro').hidden  = p.plano !== 'pro';
+  $('#tagVita').hidden = p.plano !== 'vitalicio';
+
+  const el = $('#statusPlano');
+  if(p.plano === 'vitalicio'){
+    $('#planoSub').textContent = 'Acesso liberado para sempre.';
+    el.innerHTML = '<div class="statusplano"><span class="selo">Vitalício</span>' +
+      '<div class="det">Você pagou uma vez e tem tudo liberado, sem renovação e sem mensalidade. Obrigado.</div></div>';
+  } else if(p.plano === 'pro' && p.ativo){
+    const d = diasAte(p.expira);
+    $('#planoSub').textContent = p.expira ? 'Ativo até ' + fmtData(p.expira) : 'Ativo';
+    el.innerHTML = '<div class="statusplano"><span class="selo">Pro</span>' +
+      '<div class="det">Tudo liberado' + (p.expira ? ' até <b>' + fmtData(p.expira) + '</b>' : '') +
+      (isFinite(d) && d <= 5 ? ' — faltam <b>' + Math.max(0,d) + '</b> dia(s). Renove para não perder o acesso.' : '.') +
+      '</div></div>';
+  } else if(p.vencido){
+    $('#planoSub').textContent = 'Assinatura vencida';
+    el.innerHTML = '<div class="statusplano"><span class="selo">Pro vencido</span>' +
+      '<div class="det">Sua assinatura venceu em <b>' + fmtData(p.expira) + '</b> e o app voltou para o Free. ' +
+      'Renove abaixo para liberar tudo de novo.</div></div>';
+  } else {
+    $('#planoSub').textContent = 'Você está no plano gratuito.';
+    el.innerHTML = '<div class="statusplano"><span class="selo">Free</span>' +
+      '<div class="det">Você tem o cálculo da hora, contas e lançamentos sem limite, ' +
+      LIMITES.free.dividas + ' dívidas, gráficos de ' + LIMITES.free.mesesGrafico + ' meses e ' +
+      LIMITES.free.recibosMes + ' recibos por mês (usou ' + recibosDoMes() + ').</div></div>';
+  }
+}
+
+function pedirPlano(plano){
+  const valor = plano === 'vitalicio' ? PRECOS.vitalicio : PRECOS.pro;
+  const nome  = plano === 'vitalicio' ? 'Vitalício' : 'Pro';
+  let canais = '';
+  if(CONTATO.pix){
+    canais += '<div class="row" style="margin-top:10px"><label class="f" style="flex:2 1 200px">Chave Pix' +
+      '<input type="text" id="pixChave" readonly value="' + esc(CONTATO.pix) + '"></label>' +
+      '<div class="actions"><button class="btn" id="btnCopiarPix">Copiar chave</button></div></div>';
+  }
+  if(CONTATO.whatsapp){
+    canais += '<p style="margin-top:10px"><a class="btn brass" style="display:inline-block;text-decoration:none" ' +
+      'href="https://wa.me/' + esc(CONTATO.whatsapp) + '?text=' +
+      encodeURIComponent('Oi! Quero o plano ' + nome + ' do CLT Code (' + money(valor) + ').') +
+      '" target="_blank" rel="noopener">Falar no WhatsApp</a></p>';
+  }
+  if(CONTATO.email){
+    canais += '<p class="hint" style="margin-top:8px">Ou por e-mail: <b>' + esc(CONTATO.email) + '</b></p>';
+  }
+  if(!canais){
+    canais = '<p class="hint" style="margin-top:10px">O contato para pagamento ainda não foi configurado neste app. ' +
+      'Quem cuida do CLT Code precisa preencher a constante <b>CONTATO</b> no arquivo app.js.</p>';
+  }
+  $('#statusPlano').innerHTML =
+    '<div class="statusplano"><span class="selo">' + nome + '</span>' +
+    '<div class="det">Valor: <b>' + money(valor) + '</b>' +
+    (plano === 'vitalicio' ? ' — pagamento único, acesso para sempre.' : ' por mês.') +
+    ' Assim que o pagamento cair, eu libero na hora.</div></div>' + canais;
+  $('#statusPlano').scrollIntoView({ behavior:'smooth', block:'center' });
+  const b = $('#btnCopiarPix');
+  if(b) b.onclick = async () => {
+    try { await navigator.clipboard.writeText(CONTATO.pix); toast('Chave copiada', 'good'); }
+    catch(e){ $('#pixChave').select(); toast('Selecione e copie', 'bad'); }
+  };
+}
+$$('[data-assinar]').forEach(b => b.onclick = () => pedirPlano(b.dataset.assinar));
+$$('[data-ir-planos]').forEach(b => b.onclick = () => {
+  irPara('conta');
+  setTimeout(() => $('#blocoPlanos').scrollIntoView({ behavior:'smooth', block:'start' }), 60);
+});
+
+/* ============================================================
+   DOCUMENTOS — Serasa e Registrato
+   O PDF é lido aqui no navegador; o arquivo não é enviado.
+   ============================================================ */
+let achados = [];      // itens lidos do PDF que ainda não foram salvos
+let docAtual = null;
+
+async function lerPDF(file){
+  const lib = window.pdfjsLib;
+  if(!lib) throw new Error('O leitor de PDF não carregou. Recarregue a página.');
+  lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const doc = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
+  let texto = '';
+  for(let i = 1; i <= doc.numPages; i++){
+    const page = await doc.getPage(i);
+    const c = await page.getTextContent();
+    const linhas = {};
+    c.items.forEach(it => {
+      const y = Math.round(it.transform[5]);
+      (linhas[y] = linhas[y] || []).push(it.str);
+    });
+    Object.keys(linhas).sort((a,b) => b - a).forEach(y => {
+      const l = linhas[y].join(' ').replace(/\s+/g,' ').trim();
+      if(l) texto += l + '\n';
+    });
+  }
+  return { texto, paginas: doc.numPages };
+}
+
+function detectarTipo(t){
+  const x = t.toLowerCase();
+  if(x.includes('registrato') || x.includes('banco central') || x.includes('scr') || x.includes('ccs')) return 'registrato';
+  if(x.includes('serasa')) return 'serasa';
+  return 'outro';
+}
+
+function extrairItens(texto){
+  const RE = /R\$\s*([\d.]{1,15},\d{2})/;
+  const IGNORAR = /total|somat[óo]rio|subtotal|limite|juros|multa|cpf|cnpj|p[áa]gina/i;
+  const vistos = new Set();
+  const out = [];
+  texto.split('\n').forEach(linha => {
+    const m = linha.match(RE);
+    if(!m) return;
+    const valor = +m[1].replace(/\./g,'').replace(',','.');
+    if(!(valor > 0)) return;
+    let nome = linha.slice(0, m.index)
+      .replace(/\d{2}\/\d{2}\/\d{4}/g,' ')
+      .replace(/[|;•]+/g,' ')
+      .replace(/\s{2,}/g,' ').trim();
+    if(nome.length < 3) nome = linha.replace(RE,' ').replace(/\s{2,}/g,' ').trim();
+    if(nome.length > 70) nome = nome.slice(nome.length - 70).trim();
+    if(!nome || IGNORAR.test(nome)) return;
+    const chave = nome.toLowerCase() + '|' + valor;
+    if(vistos.has(chave)) return;
+    vistos.add(chave);
+    out.push({ nome, valor, marcado: true });
+  });
+  return out.slice(0, 40);
+}
+
+async function processarArquivo(file){
+  const msg = $('#docMsg');
+  if(!file) return;
+  if(file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)){
+    msg.textContent = 'Esse arquivo não é um PDF.'; return;
+  }
+  msg.textContent = 'Lendo "' + file.name + '"…';
+  try{
+    const { texto, paginas } = await lerPDF(file);
+    const tipo = detectarTipo(texto);
+    achados = extrairItens(texto);
+    docAtual = { tipo, arquivo: file.name, paginas };
+    msg.textContent = achados.length
+      ? 'Li ' + paginas + ' página(s) e encontrei ' + achados.length + ' linha(s) com valor.'
+      : 'Li o arquivo, mas não encontrei valores em reais. Pode ser um PDF de imagem (digitalizado), que precisa de leitura de texto.';
+    renderAchados();
+  } catch(e){
+    msg.textContent = 'Não consegui ler esse PDF: ' + e.message;
+    achados = []; docAtual = null; renderAchados();
+  }
+}
+
+function renderAchados(){
+  const el = $('#docResultado');
+  if(!achados.length){ el.innerHTML = ''; return; }
+  const rotulo = { serasa:'Extrato Serasa', registrato:'Registrato — Banco Central', outro:'Documento' }[docAtual.tipo];
+  const total = achados.filter(a => a.marcado).reduce((a,b) => a + b.valor, 0);
+  el.innerHTML =
+    '<div class="docmeta"><span class="tipo">' + rotulo + '</span>' +
+    '<span class="hint">' + esc(docAtual.arquivo) + ' · ' + docAtual.paginas + ' página(s)</span></div>' +
+    '<p class="hint" style="margin-bottom:10px">Confira antes de integrar. A leitura é automática e pode pegar linha errada — ' +
+    'corrija o nome, ajuste o valor ou desmarque o que não for dívida.</p>' +
+    '<div class="list">' + achados.map((a,i) =>
+      '<div class="achado"><label class="sw"><input type="checkbox" data-marc="' + i + '"' + (a.marcado?' checked':'') + '><i></i></label>' +
+      '<input type="text" data-nome="' + i + '" value="' + esc(a.nome) + '">' +
+      '<input class="num" type="number" step="0.01" data-valor="' + i + '" value="' + a.valor + '">' +
+      '</div>').join('') + '</div>' +
+    '<div class="tiles" style="margin-top:14px">' +
+      '<div class="tile accent"><span class="k">Total marcado</span><span class="v num">' + money(total) + '</span>' +
+      '<span class="sub">' + fmtH(emHoras(total)) + ' de trabalho</span></div>' +
+      '<div class="tile"><span class="k">Linhas marcadas</span><span class="v num">' +
+      achados.filter(a=>a.marcado).length + '</span><span class="sub">de ' + achados.length + '</span></div>' +
+    '</div>' +
+    '<div class="actions" style="margin-top:14px">' +
+      '<button class="btn" id="btnIntegrar">Integrar nas Dívidas</button>' +
+      '<button class="btn ghost" id="btnSoGuardar">Só guardar o resumo</button>' +
+      '<button class="btn ghost" id="btnDescartar">Descartar</button>' +
+    '</div>';
+
+  $$('#docResultado [data-marc]').forEach(c => c.onchange = () => { achados[+c.dataset.marc].marcado = c.checked; renderAchados(); });
+  $$('#docResultado [data-nome]').forEach(c => c.onchange = () => { achados[+c.dataset.nome].nome = c.value; });
+  $$('#docResultado [data-valor]').forEach(c => c.onchange = () => { achados[+c.dataset.valor].valor = +c.value||0; renderAchados(); });
+  $('#btnIntegrar').onclick  = () => salvarDoc(true);
+  $('#btnSoGuardar').onclick = () => salvarDoc(false);
+  $('#btnDescartar').onclick = () => { achados = []; docAtual = null; $('#docMsg').textContent = ''; renderAchados(); };
+}
+
+function salvarDoc(integrar){
+  const marcados = achados.filter(a => a.marcado);
+  if(!marcados.length) return toast('Marque pelo menos uma linha', 'bad');
+  const doc = {
+    id: uid(), tipo: docAtual.tipo, arquivo: docAtual.arquivo, paginas: docAtual.paginas,
+    total: Math.round(marcados.reduce((a,b) => a + b.valor, 0) * 100) / 100,
+    itens: marcados.map(a => ({ nome: a.nome, valor: a.valor })),
+    integrado: !!integrar, criado_em: new Date().toISOString()
+  };
+  S.documentos.unshift(doc);
+
+  if(integrar){
+    marcados.forEach(a => {
+      const d = { id: uid(), nome: a.nome, credor: doc.tipo === 'serasa' ? 'Serasa' : 'Registrato',
+        total: a.valor, pago: 0, parcela: 0, dia: 10, juros: 0, contar: false, quitada: false };
+      S.dividas.push(d);
+      sincronizar({ tipo:'upsert', col:'dividas', dados:d });
+    });
+  }
+  S.demo = false;
+  achados = []; docAtual = null; $('#docMsg').textContent = '';
+  commit();
+  sincronizar({ tipo:'upsert', col:'documentos', dados:doc });
+  toast(integrar ? marcados.length + ' dívida(s) criadas' : 'Resumo guardado', 'good');
+  if(integrar) irPara('dividas');
+}
+
+function renderDocs(){
+  const el = $('#docsList');
+  if(!S.documentos.length){
+    el.innerHTML = '<div class="empty"><b>Nenhum documento importado</b>Suba o PDF do Serasa ou do Registrato acima.</div>';
+    return;
+  }
+  const rotulo = { serasa:'Serasa', registrato:'Registrato', outro:'Documento' };
+  el.innerHTML = S.documentos.map(d =>
+    '<div class="item"><span class="stripe fix"></span><div class="main">' +
+    '<div class="nm">' + esc(rotulo[d.tipo] || 'Documento') + ' — ' + esc(d.arquivo || 'arquivo') + '</div>' +
+    '<div class="meta">' + fmtData(d.criado_em) + ' · ' + (d.itens||[]).length + ' item(ns)' +
+    (d.integrado ? ' · integrado nas dívidas' : ' · só resumo') + '</div></div>' +
+    '<div class="amt num">' + money(d.total) + '<small>' + fmtH(emHoras(d.total)) + '</small></div>' +
+    '<button class="x" data-deldoc="' + d.id + '" aria-label="Excluir">&times;</button></div>').join('');
+  $$('#docsList [data-deldoc]').forEach(b => b.onclick = () => {
+    const id = b.dataset.deldoc;
+    S.documentos = S.documentos.filter(x => x.id !== id); commit();
+    sincronizar({ tipo:'delete', col:'documentos', id });
+  });
+}
+
+$('#drop').addEventListener('click', e => { if(e.target.tagName !== 'INPUT') $('#fArquivo').click(); });
+$('#fArquivo').addEventListener('change', e => processarArquivo(e.target.files[0]));
+['dragenter','dragover'].forEach(ev => $('#drop').addEventListener(ev, e => {
+  e.preventDefault(); $('#drop').classList.add('sobre');
+}));
+['dragleave','drop'].forEach(ev => $('#drop').addEventListener(ev, e => {
+  e.preventDefault(); $('#drop').classList.remove('sobre');
+}));
+$('#drop').addEventListener('drop', e => processarArquivo(e.dataTransfer.files[0]));
 
 /* ============================================================
    INÍCIO

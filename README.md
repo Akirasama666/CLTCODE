@@ -17,6 +17,9 @@ quem trabalha de carteira assinada, por hora, por dia ou por escala.
 - **Gráficos** dos últimos seis meses: entrou × saiu, evolução do saldo e
   divisão das saídas por categoria.
 - **Preços**: simulador "vale quantas horas?" e busca (`/api/precos`).
+- **Documentos**: lê o PDF do extrato do Serasa e do Registrato do Banco Central,
+  lista o que encontrou e integra as dívidas com um clique. A leitura acontece no
+  próprio navegador — o arquivo não é enviado a lugar nenhum, só o resumo é salvo.
 - **Recibos em PDF** com valor por extenso.
 - **Funciona offline** e pode ser instalado como aplicativo (PWA).
 
@@ -96,3 +99,41 @@ Para cobrança automática (cartão recorrente), o caminho é um gateway
 o pagamento entrou e o servidor muda o plano. A mudança de plano nunca pode
 partir do navegador do cliente, senão qualquer pessoa libera o Pro sozinha —
 é por isso que as políticas de `perfis` só deixam o dono alterar planos.
+
+
+## Planos e limites
+
+Três planos: **Free**, **Pro** (R$ 12,90/mês) e **Vitalício** (R$ 49,90, pagamento único).
+
+Os limites ficam em um único lugar no `app.js` — a constante `LIMITES`:
+
+```js
+const LIMITES = {
+  free: { dividas: 2, recibosMes: 3, mesesGrafico: 3,  documentos: false, buscaPreco: false, exportar: false },
+  pago: { dividas: Infinity, recibosMes: Infinity, mesesGrafico: 12, documentos: true, buscaPreco: true, exportar: true }
+};
+```
+
+Mudou o número ali, mudou no app inteiro. Os preços ficam em `PRECOS`.
+
+Quem está com plano ativo **não vê a tela de preços** — ela só reaparece quando a
+assinatura vence, ou nos 5 dias antes do vencimento, como aviso de renovação.
+O Vitalício nunca vê preço.
+
+### Contato para pagamento
+
+Preencha a constante `CONTATO` no topo do `app.js` para os botões "Quero o Pro" e
+"Quero o Vitalício" abrirem seus dados:
+
+```js
+const CONTATO = { pix: 'sua-chave-pix', whatsapp: '5561999999999', email: 'voce@email.com' };
+```
+
+Enquanto estiver vazio, o app avisa que o contato ainda não foi configurado.
+
+### Aviso honesto sobre os limites
+
+O bloqueio hoje é **na tela**. Alguém com conhecimento técnico consegue burlar pelo
+navegador. Para um app pessoal e os primeiros assinantes isso basta; quando houver
+dinheiro de verdade em jogo, os limites precisam subir para o banco (regras de RLS
+e funções que contem recibos e dívidas por usuário).
