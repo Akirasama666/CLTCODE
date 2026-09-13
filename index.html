@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CLT Code — seu dinheiro em horas</title>
+<meta name="description" content="Calcule quanto vale a sua hora de trabalho, organize as contas do mês, acompanhe o saldo e emita recibos em PDF.">
+<meta name="theme-color" content="#14212F">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CLT Code">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<svg class="sprite" aria-hidden="true"><symbol id='i-painel' viewBox='0 0 24 24'><rect x='3' y='3' width='7' height='9' rx='1.5'/><rect x='14' y='3' width='7' height='5' rx='1.5'/><rect x='14' y='12' width='7' height='9' rx='1.5'/><rect x='3' y='16' width='7' height='5' rx='1.5'/></symbol><symbol id='i-contas' viewBox='0 0 24 24'><path d='M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z'/><path d='M9 8h6M9 12h6'/></symbol><symbol id='i-lanc' viewBox='0 0 24 24'><path d='M7 20V5m0 0L3 9m4-4 4 4'/><path d='M17 4v15m0 0 4-4m-4 4-4-4'/></symbol><symbol id='i-graf' viewBox='0 0 24 24'><path d='M4 20h16'/><rect x='5' y='11' width='4' height='6' rx='1'/><rect x='11' y='7' width='4' height='10' rx='1'/><rect x='17' y='13' width='3' height='4' rx='1'/></symbol><symbol id='i-precos' viewBox='0 0 24 24'><path d='M20.6 12.6 12.6 20.6a2 2 0 0 1-2.8 0l-6.4-6.4a2 2 0 0 1-.6-1.4V4.4A1.4 1.4 0 0 1 4.4 3h8.4a2 2 0 0 1 1.4.6l6.4 6.4a2 2 0 0 1 0 2.6z'/><circle cx='7.5' cy='7.5' r='1.3'/></symbol><symbol id='i-rec' viewBox='0 0 24 24'><path d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/><path d='M14 3v5h5'/><path d='M9 13h6M9 17h4'/></symbol><symbol id='i-dividas' viewBox='0 0 24 24'><path d='M3 7h18v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/><path d='M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2'/><path d='M8 13h8'/></symbol><symbol id='i-mais' viewBox='0 0 24 24'><circle cx='5' cy='12' r='1.6'/><circle cx='12' cy='12' r='1.6'/><circle cx='19' cy='12' r='1.6'/></symbol><symbol id='i-conta' viewBox='0 0 24 24'><circle cx='12' cy='8' r='4'/><path d='M4 21c0-4 3.6-6 8-6s8 2 8 6'/></symbol></svg>
+
+<!-- ============================ CARREGANDO ============================ -->
+<div id="boot" class="boot">
+  <div class="boot-mark">R$</div>
+  <p>Abrindo o CLT Code…</p>
+</div>
+
+<!-- ============================ LOGIN ============================ -->
+<div id="auth" class="auth" hidden>
+  <section class="auth-pitch">
+    <div class="auth-brand"><span class="mark">R$</span><div><h1>CLT Code</h1><small>seu dinheiro em horas</small></div></div>
+    <h2>Quanto do seu mês custa aquela compra?</h2>
+    <p class="lead">Você diz o salário. O CLT Code diz quanto vale a sua hora, o seu dia e o seu minuto — e traduz cada conta, cada gasto e cada meta em tempo de trabalho.</p>
+    <ul class="auth-list">
+      <li><b>Hora, dia e minuto</b> calculados na base CLT (jornada &times; 5).</li>
+      <li><b>Contas fixas e variáveis</b> com vencimento, status e total em horas.</li>
+      <li><b>Entradas e saídas</b> com histórico que não se perde.</li>
+      <li><b>Recibos em PDF</b> com valor por extenso, prontos para assinar.</li>
+      <li><b>Funciona offline</b> e dá para instalar como aplicativo.</li>
+    </ul>
+    <p class="auth-foot">Feito para quem trabalha por hora, por dia ou de carteira assinada.</p>
+  </section>
+
+  <section class="auth-form">
+    <div class="auth-card">
+      <div class="seg" role="tablist">
+        <button class="seg-b" id="segEntrar" aria-selected="true">Entrar</button>
+        <button class="seg-b" id="segCriar" aria-selected="false">Criar conta</button>
+      </div>
+      <h3 id="authTitle">Entrar na sua conta</h3>
+      <p class="hint" id="authHint">Seus dados ficam salvos na nuvem e aparecem em qualquer aparelho.</p>
+
+      <form id="authForm" novalidate>
+        <label class="f" id="wrapNome" hidden>Seu nome
+          <input type="text" id="aNome" autocomplete="name" placeholder="Como quer ser chamado">
+        </label>
+        <label class="f">E-mail
+          <input type="email" id="aEmail" autocomplete="email" required placeholder="voce@email.com">
+        </label>
+        <label class="f">Senha
+          <input type="password" id="aSenha" autocomplete="current-password" required minlength="6" placeholder="mínimo 6 caracteres">
+        </label>
+        <p class="err" id="authErr" hidden></p>
+        <p class="ok" id="authOk" hidden></p>
+        <button class="btn big" id="authGo" type="submit">Entrar</button>
+      </form>
+
+      <div class="auth-alt">
+        <button class="linkb" id="btnReset">Esqueci minha senha</button>
+        <span>·</span>
+        <button class="linkb" id="btnGuest">Usar sem conta</button>
+      </div>
+      <p class="hint sm">Sem conta, os dados ficam só neste aparelho. Dá para criar a conta depois sem perder nada.</p>
+    </div>
+  </section>
+</div>
+
+<!-- ============================ APP ============================ -->
+<div id="app" class="app" hidden>
+
+  <aside class="side">
+    <div class="side-brand"><span class="mark">R$</span><div><h1>CLT Code</h1><small>seu dinheiro em horas</small></div></div>
+    <nav class="side-nav" role="tablist">
+      <button class="nv" data-view="painel" aria-selected="true"><svg class="ic"><use href="#i-painel"/></svg><span>Painel</span></button>
+      <button class="nv" data-view="contas" aria-selected="false"><svg class="ic"><use href="#i-contas"/></svg><span>Contas</span></button>
+      <button class="nv" data-view="dividas" aria-selected="false"><svg class="ic"><use href="#i-dividas"/></svg><span>Dívidas</span></button>
+      <button class="nv" data-view="lanc" aria-selected="false"><svg class="ic"><use href="#i-lanc"/></svg><span>Lançamentos</span></button>
+      <button class="nv" data-view="graf" aria-selected="false"><svg class="ic"><use href="#i-graf"/></svg><span>Gráficos</span></button>
+      <button class="nv" data-view="precos" aria-selected="false"><svg class="ic"><use href="#i-precos"/></svg><span>Preços</span></button>
+      <button class="nv" data-view="rec" aria-selected="false"><svg class="ic"><use href="#i-rec"/></svg><span>Recibos</span></button>
+      <button class="nv" data-view="conta" aria-selected="false"><svg class="ic"><use href="#i-conta"/></svg><span>Minha conta</span></button>
+    </nav>
+    <div class="side-foot">
+      <div class="sync" id="syncBadge"><i></i><span>Só neste aparelho</span></div>
+      <button class="linkb" id="btnTema">Mudar tema</button>
+    </div>
+  </aside>
+
+  <div class="mainwrap">
+    <header class="bar">
+      <button class="iconbtn only-mobile" id="btnTemaM" aria-label="Mudar tema">◐</button>
+      <div class="mon">
+        <button id="mPrev" aria-label="Mês anterior">&#8249;</button>
+        <span class="lbl num" id="mLbl">—</span>
+        <button id="mNext" aria-label="Próximo mês">&#8250;</button>
+      </div>
+      <span class="grow"></span>
+      <span class="who num" id="whoBadge"></span>
+      <button class="iconbtn" id="btnInstalar" hidden>Instalar app</button>
+      <button class="iconbtn only-mobile" id="btnContaM" aria-label="Minha conta"><svg class="ic"><use href="#i-conta"/></svg></button>
+    </header>
+
+    <main id="main">
+
+      <!-- ---------- PAINEL ---------- -->
+      <div class="view" id="v-painel">
+        <div class="note" id="guestNote" hidden>
+          <div><b>Você está sem conta.</b> Os dados estão salvos só neste aparelho. Crie uma conta para não perder nada e usar no celular e no PC.</div>
+          <button class="btn sm" id="btnVirarConta">Criar conta</button>
+        </div>
+        <div class="note" id="demoNote" hidden>
+          <div><b>Dados de exemplo.</b> Preenchi para você ver o app funcionando. Troque pelos seus ou limpe tudo.</div>
+          <button class="btn ghost sm" id="btnLimparDemo">Limpar exemplos</button>
+        </div>
+
+        <section class="block">
+          <div class="bh"><h2>Quanto vale a sua hora</h2><p>Base CLT: jornada semanal &times; 5 = horas do mês.</p></div>
+          <div class="card">
+            <div class="row">
+              <label class="f">Salário mensal (R$)<input class="num" type="number" id="fSal" min="0" step="0.01" inputmode="decimal"></label>
+              <label class="f">Jornada semanal (h)<input class="num" type="number" id="fJor" min="1" max="60" step="1" inputmode="numeric"></label>
+              <label class="f">Dias trabalhados no mês<input class="num" type="number" id="fDias" min="1" max="31" step="1" inputmode="numeric"></label>
+              <label class="f">Saldo inicial em conta (R$)<input class="num" type="number" id="fSaldo" step="0.01" inputmode="decimal"></label>
+            </div>
+            <div class="row" style="margin-top:11px">
+              <label class="f" style="flex:2 1 220px">Sua escala de trabalho<select id="fEscala"></select></label>
+              <label class="f">Horas por dia<input class="num" type="number" id="fHorasDia" min="1" max="24" step="0.1" inputmode="decimal"></label>
+            </div>
+            <p class="hint" id="escalaHint" style="margin-top:9px">—</p>
+            <p class="hint" style="margin-top:9px">Salário mínimo nacional de 2026: <b class="num">R$&nbsp;1.621,00</b>.
+              <button class="btn ghost sm" id="btnMinimo">Usar o mínimo</button></p>
+          </div>
+          <div class="tiles" style="margin-top:12px">
+            <div class="tile accent"><span class="k">Por hora</span><span class="v num" id="tHora">—</span><span class="sub" id="tHoraSub">—</span></div>
+            <div class="tile"><span class="k">Por dia trabalhado</span><span class="v num" id="tDia">—</span><span class="sub" id="tDiaSub">—</span></div>
+            <div class="tile"><span class="k">Por minuto</span><span class="v num" id="tMin">—</span><span class="sub">cada minuto trabalhado</span></div>
+            <div class="tile"><span class="k">Horas no mês</span><span class="v num" id="tHoras">—</span><span class="sub" id="tHorasSub">—</span></div>
+          </div>
+        </section>
+
+        <section class="block">
+          <div class="bh"><h2>O mês em números</h2><p id="mesResumo">—</p></div>
+          <div class="tiles">
+            <div class="tile"><span class="k">Entrou</span><span class="v num pos" id="tIn">—</span><span class="sub" id="tInSub">—</span></div>
+            <div class="tile"><span class="k">Saiu</span><span class="v num neg" id="tOut">—</span><span class="sub" id="tOutSub">—</span></div>
+            <div class="tile"><span class="k">Ainda a pagar</span><span class="v num" id="tDue">—</span><span class="sub" id="tDueSub">—</span></div>
+            <div class="tile accent"><span class="k">Saldo em conta</span><span class="v num" id="tBal">—</span><span class="sub" id="tBalSub">—</span></div>
+          </div>
+        </section>
+
+        <section class="block">
+          <div class="bh"><h2>Ritmo do mês</h2><p>Cada dia em que entrou dinheiro.</p><span class="grow"></span>
+            <button class="btn sm" id="btnHoje">+ Ganho de hoje</button></div>
+          <div class="card">
+            <div class="chips" id="chips"></div>
+            <div id="sparkWrap" style="margin-top:14px"></div>
+          </div>
+        </section>
+
+        <section class="block">
+          <div class="bh"><h2>Meta de economia</h2><p>Quanto tempo de trabalho falta para chegar lá.</p></div>
+          <div class="card">
+            <div class="row">
+              <label class="f">O que você quer<input type="text" id="gNome" placeholder="Ex.: notebook novo"></label>
+              <label class="f">Quanto custa (R$)<input class="num" type="number" id="gVal" step="0.01" min="0" inputmode="decimal"></label>
+              <label class="f">Guardando por mês (R$)<input class="num" type="number" id="gMes" step="0.01" min="0" inputmode="decimal"></label>
+            </div>
+            <div id="metaOut" class="metaout">—</div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ---------- CONTAS ---------- -->
+      <div class="view" id="v-contas" hidden>
+        <section class="block">
+          <div class="bh"><h2>Contas do mês</h2><p id="contasSub">—</p></div>
+          <div class="card" style="margin-bottom:14px">
+            <div class="row">
+              <label class="f" style="flex:2 1 180px">Conta<input type="text" id="cNome" placeholder="Ex.: Energia elétrica"></label>
+              <label class="f">Valor (R$)<input class="num" type="number" id="cVal" step="0.01" min="0" inputmode="decimal"></label>
+              <label class="f">Tipo<select id="cTipo"><option value="fixa">Fixa</option><option value="variavel">Variável</option></select></label>
+              <label class="f">Vence dia<input class="num" type="number" id="cDia" min="1" max="31" step="1" inputmode="numeric" value="10"></label>
+            </div>
+            <div class="row" style="margin-top:11px">
+              <label class="f" style="flex:2 1 180px">Categoria<select id="cCat"></select></label>
+              <div class="actions">
+                <button class="btn" id="btnAddConta">Adicionar conta</button>
+                <button class="btn ghost" id="btnCopiar">Copiar mês anterior</button>
+              </div>
+            </div>
+          </div>
+          <div class="tiles" style="margin-bottom:14px">
+            <div class="tile"><span class="k">Fixas</span><span class="v num" id="cFix">—</span><span class="sub" id="cFixSub">—</span></div>
+            <div class="tile"><span class="k">Variáveis</span><span class="v num" id="cVar">—</span><span class="sub" id="cVarSub">—</span></div>
+            <div class="tile"><span class="k">Total do mês</span><span class="v num" id="cTot">—</span><span class="sub" id="cTotSub">—</span></div>
+            <div class="tile"><span class="k">Já pago</span><span class="v num pos" id="cPago">—</span><span class="sub" id="cPagoSub">—</span></div>
+          </div>
+          <div class="list" id="contasList"></div>
+        </section>
+      </div>
+
+      <!-- ---------- DÍVIDAS ---------- -->
+      <div class="view" id="v-dividas" hidden>
+        <section class="block">
+          <div class="bh"><h2>Sair do vermelho</h2><p>Marque quais dívidas entram no total do mês e vá abatendo.</p></div>
+          <div class="tiles" style="margin-bottom:14px">
+            <div class="tile accent"><span class="k">Falta pagar</span><span class="v num" id="dSaldo">—</span><span class="sub" id="dSaldoSub">—</span></div>
+            <div class="tile"><span class="k">Já quitado</span><span class="v num pos" id="dPago">—</span><span class="sub" id="dPagoSub">—</span></div>
+            <div class="tile"><span class="k">Parcelas do mês</span><span class="v num" id="dParc">—</span><span class="sub" id="dParcSub">contando no total</span></div>
+            <div class="tile"><span class="k">Previsão de quitação</span><span class="v num" id="dPrev">—</span><span class="sub" id="dPrevSub">no ritmo atual</span></div>
+          </div>
+          <div class="card" style="margin-bottom:14px">
+            <div class="row">
+              <label class="f" style="flex:2 1 180px">Dívida<input type="text" id="dNome" placeholder="Ex.: cartão Nubank"></label>
+              <label class="f">Para quem<input type="text" id="dCredor" placeholder="banco, loja, pessoa"></label>
+              <label class="f">Total devido (R$)<input class="num" type="number" id="dTotal" step="0.01" min="0" inputmode="decimal"></label>
+            </div>
+            <div class="row" style="margin-top:11px">
+              <label class="f">Parcela mensal (R$)<input class="num" type="number" id="dParcela" step="0.01" min="0" inputmode="decimal"></label>
+              <label class="f">Vence dia<input class="num" type="number" id="dDia" min="1" max="31" step="1" inputmode="numeric" value="10"></label>
+              <label class="f">Já pago (R$)<input class="num" type="number" id="dJaPago" step="0.01" min="0" inputmode="decimal" value="0"></label>
+              <div class="actions"><button class="btn" id="btnAddDivida">Adicionar dívida</button></div>
+            </div>
+            <p class="hint" style="margin-top:10px">A caixinha de cada dívida decide se a parcela entra no total de saídas do mês. Desmarque para simular como ficaria o mês sem ela.</p>
+          </div>
+          <div class="list" id="dividasList"></div>
+          <div class="card" id="dividaPlano" style="margin-top:14px"></div>
+        </section>
+      </div>
+
+      <!-- ---------- LANÇAMENTOS ---------- -->
+      <div class="view" id="v-lanc" hidden>
+        <section class="block">
+          <div class="bh"><h2>Entradas e saídas</h2><p>Tudo o que entrou ou saiu, dia a dia.</p></div>
+          <div class="card" style="margin-bottom:14px">
+            <div class="row">
+              <label class="f">Tipo<select id="lTipo"><option value="entrada">Entrada (+)</option><option value="saida">Saída (−)</option></select></label>
+              <label class="f" style="flex:2 1 180px">Descrição<input type="text" id="lDesc" placeholder="Ex.: diária, freela, mercado"></label>
+              <label class="f">Valor (R$)<input class="num" type="number" id="lVal" step="0.01" min="0" inputmode="decimal"></label>
+              <label class="f">Data<input type="date" id="lData"></label>
+            </div>
+            <div class="row" style="margin-top:11px">
+              <label class="f" style="flex:2 1 180px">Categoria<select id="lCat"></select></label>
+              <div class="actions"><button class="btn" id="btnAddLanc">Lançar</button></div>
+            </div>
+          </div>
+          <div class="list" id="lancList"></div>
+          <p class="hint" style="margin-top:10px" id="histInfo">—</p>
+        </section>
+      </div>
+
+      <!-- ---------- GRÁFICOS ---------- -->
+      <div class="view" id="v-graf" hidden>
+        <section class="block">
+          <div class="bh"><h2>Visão de negócio</h2><p>Os últimos 6 meses de operação.</p></div>
+          <div class="chartcard">
+            <h3>Entrou &times; saiu por mês</h3>
+            <p class="cap">Barras lado a lado. Toque ou passe o mouse para ver o valor.</p>
+            <div class="legend"><span><i style="background:var(--s1)"></i>Entradas</span><span><i style="background:var(--s2)"></i>Saídas</span></div>
+            <div class="chartwrap" id="chart1"></div>
+            <details class="tbl"><summary>Ver como tabela</summary><div id="tbl1"></div></details>
+          </div>
+          <div class="chartcard">
+            <h3>Evolução do saldo</h3>
+            <p class="cap">Saldo em conta acumulado ao fim de cada mês.</p>
+            <div class="chartwrap" id="chart2"></div>
+          </div>
+          <div class="chartcard">
+            <h3>Para onde foi o dinheiro</h3>
+            <p class="cap">Categorias de saída no mês selecionado, com o equivalente em horas de trabalho.</p>
+            <div class="chartwrap" id="chart3"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ---------- PREÇOS ---------- -->
+      <div class="view" id="v-precos" hidden>
+        <section class="block">
+          <div class="bh"><h2>Vale quantas horas?</h2><p>Traduza qualquer preço em tempo de trabalho.</p></div>
+          <div class="card">
+            <div class="row" style="align-items:flex-end">
+              <label class="f">Preço (R$)<input class="num" type="number" id="fSim" step="0.01" min="0" inputmode="decimal" value="150"></label>
+              <div style="flex:2 1 240px">
+                <div class="flabel">Custo em trabalho</div>
+                <div class="num" id="simOut" style="font-size:20px;font-weight:600">—</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="block">
+          <div class="bh"><h2>Buscar preço</h2><p id="fonteSub">—</p></div>
+          <div class="card">
+            <form class="row" id="formBusca">
+              <label class="f" style="flex:3 1 240px">O que você quer comprar
+                <input type="search" id="qBusca" placeholder="Ex.: botijão de gás, tênis, notebook">
+              </label>
+              <div class="actions"><button class="btn" type="submit">Buscar</button></div>
+            </form>
+            <div id="buscaOut" style="margin-top:14px"></div>
+          </div>
+        </section>
+
+        <section class="block">
+          <div class="bh"><h2>Seus itens</h2><p>Preços que você acompanha. Editáveis.</p></div>
+          <div class="list" id="itensList"></div>
+          <div class="card" style="margin-top:12px">
+            <div class="row">
+              <label class="f" style="flex:2 1 180px">Item<input type="text" id="iNome" placeholder="Ex.: cesta básica"></label>
+              <label class="f">Preço (R$)<input class="num" type="number" id="iPreco" step="0.01" min="0" inputmode="decimal"></label>
+              <div class="actions"><button class="btn" id="btnAddItem">Adicionar</button></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ---------- RECIBOS ---------- -->
+      <div class="view" id="v-rec" hidden>
+        <section class="block">
+          <div class="bh"><h2>Recibo</h2><p>Preencha, confira abaixo e baixe em PDF.</p></div>
+          <div class="card" style="margin-bottom:16px">
+            <div class="row">
+              <label class="f" style="flex:2 1 200px">Recebi de<input type="text" id="rPag" placeholder="Nome de quem pagou"></label>
+              <label class="f">Valor (R$)<input class="num" type="number" id="rVal" step="0.01" min="0" inputmode="decimal"></label>
+              <label class="f">Data<input type="date" id="rData"></label>
+            </div>
+            <div class="row" style="margin-top:11px">
+              <label class="f" style="flex:2 1 240px">Referente a<input type="text" id="rRef" placeholder="Ex.: serviço de montagem de móveis"></label>
+              <label class="f">Cidade<input type="text" id="rCid" placeholder="Luziânia - GO"></label>
+            </div>
+            <div class="row" style="margin-top:11px">
+              <label class="f" style="flex:2 1 200px">Emitido por (você)<input type="text" id="rEmi" placeholder="Seu nome completo"></label>
+              <label class="f">CPF / CNPJ<input type="text" id="rDoc" placeholder="opcional"></label>
+            </div>
+            <div class="actions" style="margin-top:13px">
+              <button class="btn" id="btnPdf">Baixar PDF</button>
+              <button class="btn ghost" id="btnSalvarRec">Salvar no histórico</button>
+            </div>
+            <p class="hint" id="pdfMsg" style="margin-top:10px"></p>
+          </div>
+
+          <div class="receipt" id="receipt">
+            <div class="rh">
+              <div><h3>RECIBO</h3><div class="num hint" id="rNum">Nº 0001</div></div>
+              <div class="val num" id="rValBox">R$ 0,00</div>
+            </div>
+            <p id="rBody">—</p>
+            <p class="num rext" id="rExt">—</p>
+            <div class="rlocal" id="rLocal">—</div>
+            <div class="sig" id="rSig">—</div>
+          </div>
+
+          <div class="bh" style="margin-top:26px"><h2>Emitidos</h2></div>
+          <div class="list" id="recList"></div>
+        </section>
+      </div>
+
+      <!-- ---------- MINHA CONTA ---------- -->
+      <div class="view" id="v-conta" hidden>
+        <section class="block">
+          <div class="bh"><h2>Minha conta</h2><p id="contaSub">—</p></div>
+          <div class="card">
+            <div class="row">
+              <label class="f" style="flex:2 1 200px">Seu nome<input type="text" id="pNome" placeholder="Nome completo"></label>
+              <label class="f">Cidade<input type="text" id="pCid" placeholder="Luziânia - GO"></label>
+              <label class="f">CPF / CNPJ<input type="text" id="pDoc" placeholder="opcional"></label>
+            </div>
+            <div class="actions" style="margin-top:13px">
+              <button class="btn" id="btnSalvarPerfil">Salvar</button>
+              <button class="btn ghost" id="btnExportar">Baixar meus dados</button>
+              <button class="btn ghost" id="btnSair">Sair da conta</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="block">
+          <div class="bh"><h2>Plano</h2><p>O CLT Code está em uso pessoal. A assinatura já está preparada no banco.</p></div>
+          <div class="planos">
+            <div class="plano" id="planoFree">
+              <span class="ptag">Atual</span>
+              <h3>Free</h3>
+              <div class="preco num">R$ 0</div>
+              <ul>
+                <li>Cálculo de hora, dia e minuto</li>
+                <li>Contas, lançamentos e saldo</li>
+                <li>Gráficos dos últimos 6 meses</li>
+                <li>3 recibos em PDF por mês</li>
+              </ul>
+            </div>
+            <div class="plano pro">
+              <span class="ptag brass">Em breve</span>
+              <h3>Pro</h3>
+              <div class="preco num">R$ 12,90<small>/mês</small></div>
+              <ul>
+                <li>Tudo do Free, sem limites</li>
+                <li>Busca de preço real nas lojas</li>
+                <li>Histórico ilimitado e exportação</li>
+                <li>Recibos com sua logo</li>
+                <li>Alerta de vencimento por e-mail</li>
+              </ul>
+              <button class="btn brass" id="btnPro" disabled>Disponível em breve</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </main>
+
+    <nav class="tabbar" role="tablist">
+      <button class="tb" data-view="painel" aria-selected="true"><svg class="ic"><use href="#i-painel"/></svg><span>Painel</span></button>
+      <button class="tb" data-view="contas" aria-selected="false"><svg class="ic"><use href="#i-contas"/></svg><span>Contas</span></button>
+      <button class="tb" data-view="dividas" aria-selected="false"><svg class="ic"><use href="#i-dividas"/></svg><span>Dívidas</span></button>
+      <button class="tb" data-view="lanc" aria-selected="false"><svg class="ic"><use href="#i-lanc"/></svg><span>Lanç.</span></button>
+      <button class="tb" data-view="graf" aria-selected="false"><svg class="ic"><use href="#i-graf"/></svg><span>Gráficos</span></button>
+      <button class="tb" id="btnMais"><svg class="ic"><use href="#i-mais"/></svg><span>Mais</span></button>
+    </nav>
+    <div class="sheet" id="sheetMais" hidden>
+      <div class="sheet-bg" id="sheetBg"></div>
+      <div class="sheet-card">
+        <h3>Mais</h3>
+        <button class="sheet-item" data-view="precos"><svg class="ic"><use href="#i-precos"/></svg>Preços</button>
+        <button class="sheet-item" data-view="rec"><svg class="ic"><use href="#i-rec"/></svg>Recibos</button>
+        <button class="sheet-item" data-view="conta"><svg class="ic"><use href="#i-conta"/></svg>Minha conta</button>
+        <button class="btn ghost" id="sheetFechar">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tip" role="status"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
