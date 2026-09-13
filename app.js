@@ -179,14 +179,11 @@ async function puxarDaNuvem(){
   ]);
   const temNuvem = (c.data||[]).length || (l.data||[]).length || (r.data||[]).length;
 
-  if(!temNuvem && (S.contas.length || S.lancamentos.length) && !S.demo){
-    // primeiro login com dados locais: sobe o que já existe neste aparelho
-    await subirTudo();
-    toast('Seus dados locais foram enviados para a nuvem', 'good');
-    return;
-  }
+  /* O perfil (plano, dono, salário) é lido primeiro e guardado à parte:
+     nenhum outro caminho pode perdê-lo. */
+  let perfilNuvem = null;
   if(p.data){
-    S.perfil = {
+    perfilNuvem = {
       nome:p.data.nome||'', cidade:p.data.cidade||'', documento:p.data.documento||'',
       salario:+p.data.salario, jornada:+p.data.jornada, dias_uteis:+p.data.dias_uteis,
       email:p.data.email||'', admin:!!p.data.admin,
@@ -195,7 +192,17 @@ async function puxarDaNuvem(){
       saldo_inicial:+p.data.saldo_inicial, plano:p.data.plano||'free',
       plano_expira:p.data.plano_expira ? String(p.data.plano_expira).slice(0,10) : null
     };
+    S.perfil = perfilNuvem;
   }
+
+  if(!temNuvem && (S.contas.length || S.lancamentos.length) && !S.demo){
+    /* primeiro login com dados locais: sobe o que já existe neste aparelho */
+    await subirTudo();
+    toast('Seus dados locais foram enviados para a nuvem', 'good');
+    salvarLocal();
+    return;
+  }
+
   if(temNuvem){
     S.demo = false;
     S.contas      = (c.data||[]).map(x=>({ id:x.id, mes:x.mes, nome:x.nome, valor:+x.valor, tipo:x.tipo, categoria:x.categoria, dia:x.dia, pago:x.pago }));
@@ -207,15 +214,24 @@ async function puxarDaNuvem(){
     S.documentos   = (dc.data||[]).map(x=>({ id:x.id, tipo:x.tipo, arquivo:x.arquivo, paginas:x.paginas,
       total:+x.total, itens:x.itens||[], integrado:x.integrado, criado_em:x.criado_em }));
   } else if(S.demo){
-    // conta nova e sem nada na nuvem: começa limpo
-    S = vazio(); S.perfil.nome = sessao.user.user_metadata?.nome || '';
+    /* conta nova e sem nada na nuvem: começa limpo, mas mantém o perfil da nuvem */
+    S = vazio();
+    if(perfilNuvem) S.perfil = perfilNuvem;
+    else S.perfil.nome = sessao.user.user_metadata?.nome || '';
   }
   salvarLocal();
+}
+/* plano, dono e e-mail são do banco: o app nunca os envia */
+function perfilSeguro(){
+  const p = S.perfil;
+  return { nome:p.nome, cidade:p.cidade, documento:p.documento, salario:p.salario,
+    jornada:p.jornada, dias_uteis:p.dias_uteis, escala:p.escala, horas_dia:p.horas_dia,
+    dias_trabalhados:p.dias_trabalhados, saldo_inicial:p.saldo_inicial };
 }
 async function subirTudo(){
   if(!sessao) return;
   const u = sessao.user.id;
-  await sb.from('perfis').update(S.perfil).eq('id', u);
+  await sb.from('perfis').update(perfilSeguro()).eq('id', u);
   const send = async (col, rows) => { if(rows.length) await sb.from(TABELAS[col]).upsert(rows.map(x=>({ ...x, user_id:u }))); };
   await send('contas', S.contas);
   await send('lancamentos', S.lancamentos);
@@ -231,7 +247,7 @@ async function subirTudo(){
    ============================================================ */
 const PRECOS = { pro: 12.90, vitalicio: 49.90 };
 /* Preencha para o botão "Quero o Pro" abrir seu contato. */
-const CONTATO = { pix: 'noxstudeo@gmail.com', whatsapp: '61993118272', email: 'noxstudeo@gmail.com' };
+const CONTATO = { pix: '', whatsapp: '', email: '' };
 
 const LIMITES = {
   free: { dividas: 2, recibosMes: 3, mesesGrafico: 3,  documentos: false, buscaPreco: false, exportar: false },
@@ -1263,7 +1279,7 @@ function renderAdmin(){
     const plano = $('#adminList [data-plano="' + id + '"]').value;
     const exp = $('#adminList [data-exp="' + id + '"]').value || null;
     b.disabled = true;
-    const { error } = await sb.from('perfis').update({ plano, plano_expira: exp }).eq('id', id);
+    const { error } = await sb.rpc('definir_plano', { p_user: id, p_plano: plano, p_expira: exp });
     b.disabled = false;
     if(error) return toast('Não deu para salvar: ' + error.message, 'bad');
     toast('Plano atualizado', 'good');
@@ -1309,8 +1325,8 @@ $('#btnAddAssinatura').onclick = async () => {
   const r1 = await sb.from('assinaturas').insert({
     user_id, plano, status:'ativa', valor, metodo:$('#asMetodo').value,
     inicio, fim: plano === 'vitalicio' ? null : fim });
-  const r2 = await sb.from('perfis')
-    .update({ plano, plano_expira: plano === 'vitalicio' ? null : fim }).eq('id', user_id);
+  const r2 = await sb.rpc('definir_plano',
+    { p_user: user_id, p_plano: plano, p_expira: plano === 'vitalicio' ? null : fim });
   b.disabled = false;
   if(r1.error || r2.error) return toast('Não deu certo: ' + ((r1.error||r2.error).message), 'bad');
   toast(($('#asPlano').value === 'vitalicio' ? 'Vitalício' : 'Pro') + ' liberado', 'good');

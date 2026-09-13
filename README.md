@@ -137,3 +137,30 @@ O bloqueio hoje é **na tela**. Alguém com conhecimento técnico consegue burla
 navegador. Para um app pessoal e os primeiros assinantes isso basta; quando houver
 dinheiro de verdade em jogo, os limites precisam subir para o banco (regras de RLS
 e funções que contem recibos e dívidas por usuário).
+
+## Segurança do plano (importante)
+
+O navegador **não** consegue mais alterar `plano`, `plano_expira`, `admin` nem `email`
+em `public.perfis` — esses privilégios foram revogados no banco:
+
+```sql
+revoke update on public.perfis from authenticated;
+grant update (nome, cidade, documento, salario, jornada, dias_uteis,
+              escala, horas_dia, dias_trabalhados, saldo_inicial, ultimo_acesso)
+  on public.perfis to authenticated;
+```
+
+A troca de plano passa pela função `public.definir_plano(user, plano, expira)`, que
+confere `eh_admin()` antes de gravar. Ou seja: mesmo abrindo o console do navegador,
+ninguém se promove a Pro nem a dono.
+
+O `perfis.email` agora acompanha o e-mail da conta automaticamente (gatilho
+`ao_atualizar_email`), então ele nunca mais fica desatualizado.
+
+### Virar dono — use o e-mail da conta, não o do perfil
+
+```sql
+update public.perfis p set admin = true
+  from auth.users u
+ where u.id = p.id and u.email = 'seu@email.com';
+```
